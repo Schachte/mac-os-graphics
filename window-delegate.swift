@@ -57,6 +57,8 @@ class WindowManager {
   }
 
   static func otherSpaces() -> [CGSSpaceID] {
+
+    print("CGSMainConnectionID: \(CGSMainConnectionID())")
     return idsAndIndexes.filter { $0.0 != currentSpaceId }.map { $0.0 }
   }
 
@@ -77,6 +79,8 @@ class WindowManager {
   static func windowsInSpaces(_ spaceIds: [CGSSpaceID], _ includeInvisible: Bool = true)
     -> [CGWindowID]
   {
+    print("CGSMainConnectionID: \(CGSMainConnectionID())")
+
     var set_tags = ([] as CGSCopyWindowsTags).rawValue
     var clear_tags = ([] as CGSCopyWindowsTags).rawValue
     var options = [.screenSaverLevel1000] as CGSCopyWindowsOptions
@@ -84,7 +88,7 @@ class WindowManager {
       options = [options, .invisible1, .invisible2]
     }
     return CGSCopyWindowsWithOptionsAndTags(
-      cgsMainConnectionId, 0, spaceIds as CFArray, options.rawValue, &set_tags, &clear_tags)
+      CGSMainConnectionID(), 0, spaceIds as CFArray, options.rawValue, &set_tags, &clear_tags)
       as! [CGWindowID]
   }
 
@@ -97,7 +101,7 @@ class WindowManager {
     }
     let cgsMainConnectionId = CGSMainConnectionID()
     print("CGSMainConnectionID: \(cgsMainConnectionId)")
-    let otherSpaces = [UInt64(213)]
+    let otherSpaces = WindowManager.otherSpaces()
     print("Other spaces found: \(otherSpaces)")
 
     guard otherSpaces.count > 0 else {
@@ -105,11 +109,11 @@ class WindowManager {
       return
     }
 
-    let windowsOnCurrentSpace = getWindowsInSpace([currentSpaceId])
-    print("Windows on current space: \(windowsOnCurrentSpace)")
-
     let windowsOnOtherSpaces = getWindowsInSpace(otherSpaces)
     print("Windows on other spaces: \(windowsOnOtherSpaces)")
+
+    let windowsOnCurrentSpace = getWindowsInSpace([currentSpaceId])
+    print("Windows on current space: \(windowsOnCurrentSpace)")
 
     let windowsOnlyOnOtherSpaces = Array(
       Set(windowsOnOtherSpaces).subtracting(windowsOnCurrentSpace))
@@ -120,10 +124,22 @@ class WindowManager {
       return
     }
 
+    // CGSAddWindowsToSpaces(
+    //   cgsMainConnectionId, [currentSpaceId] as CFArray, windowsOnlyOnOtherSpaces as NSArray)
+    // CGSAddWindowsToSpaces(
+    //   cgsMainConnectionId, windowsOnCurrentSpace as NSArray, [otherSpaces[1]] as CFArray)
+    // let windowsStillOnOtherSpaces = getWindowsInSpace(otherSpaces)
+
     CGSAddWindowsToSpaces(
-      cgsMainConnectionId, windowsOnlyOnOtherSpaces as NSArray, [currentSpaceId])
-    let windowsStillOnOtherSpaces = getWindowsInSpace(otherSpaces)
-    let unmovedInChunk = windowsOnlyOnOtherSpaces.filter { windowsStillOnOtherSpaces.contains($0) }
+      cgsMainConnectionId, windowsOnlyOnOtherSpaces as NSArray, [WindowManager.currentSpaceId])
+
+    // Applications.manuallyUpdateWindowsFor2s()
+    Thread.sleep(forTimeInterval: 2)
+
+    CGSRemoveWindowsFromSpaces(
+      cgsMainConnectionId, windowsOnlyOnOtherSpaces as NSArray, [WindowManager.currentSpaceId])
+
+    Thread.sleep(forTimeInterval: 2)
 
     // Final verification
     let finalWindowsOnOtherSpaces = getWindowsInSpace(otherSpaces)
@@ -131,36 +147,13 @@ class WindowManager {
     if totalUnmoved.count > 0 {
       print("Warning: Total failed moves: \(totalUnmoved.count) windows")
       print("Unmoved window IDs: \(totalUnmoved)")
+    } else {
+      print("Successfully moved all windows")
     }
 
     // Refresh space data
     refreshAllIdsAndIndexes()
     refreshCurrentSpaceId()
-  }
-
-  static func moveWindowsToSpace(windowIDs: [CGWindowID], targetSpace: CGSSpaceID) {
-    if !AXIsProcessTrusted() {
-      print(
-        "The application is not trusted. Please grant accessibility permissions in System Preferences."
-      )
-      return
-    }
-
-    let windowNumbers = windowIDs.map { NSNumber(value: $0) }
-    print(windowNumbers)
-
-    CGSMoveWindowsToManagedSpace(CGSMainConnectionID(), windowNumbers as CFArray, targetSpace)
-    // Verify the move
-    if let currentSpaces = CGSCopySpacesForWindows(
-      CGSMainConnectionID(), CGSSpaceMask.all.rawValue, windowNumbers as CFArray) as? [CGSSpaceID]
-    {
-      print("Windows are now in spaces:", currentSpaces)
-      if !currentSpaces.contains(targetSpace) {
-        print("Failed to move windows to the target space.")
-      }
-    } else {
-      print("Failed to retrieve current spaces for windows.")
-    }
   }
 
   static func canMoveWindow(_ windowId: CGWindowID) -> Bool {
