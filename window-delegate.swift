@@ -130,14 +130,18 @@ class WindowManager {
     //   cgsMainConnectionId, windowsOnCurrentSpace as NSArray, [otherSpaces[1]] as CFArray)
     // let windowsStillOnOtherSpaces = getWindowsInSpace(otherSpaces)
 
-    CGSAddWindowsToSpaces(
-      cgsMainConnectionId, windowsOnlyOnOtherSpaces as NSArray, [WindowManager.currentSpaceId])
+    // CGSAddWindowsToSpaces(
+    //   cgsMainConnectionId, windowsOnlyOnOtherSpaces as NSArray, [WindowManager.currentSpaceId])
 
-    // Applications.manuallyUpdateWindowsFor2s()
-    Thread.sleep(forTimeInterval: 2)
+    // // Applications.manuallyUpdateWindowsFor2s()
+    // Thread.sleep(forTimeInterval: 2)
 
-    CGSRemoveWindowsFromSpaces(
-      cgsMainConnectionId, windowsOnlyOnOtherSpaces as NSArray, [WindowManager.currentSpaceId])
+    // CGSRemoveWindowsFromSpaces(
+    //   cgsMainConnectionId, windowsOnlyOnOtherSpaces as NSArray, [WindowManager.currentSpaceId])
+
+    print(otherSpaces[0])
+    CGSMoveWindowsToManagedSpace(cgsMainConnectionId, windowsOnCurrentSpace as NSArray, otherSpaces[0])
+
 
     Thread.sleep(forTimeInterval: 2)
 
